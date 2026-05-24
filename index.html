@@ -10,14 +10,13 @@
         .token-row:hover { background: #1e293b; transition: 0.2s; }
         .up { color: #4ade80; }
         .down { color: #f87171; }
-        .loading { opacity: 0.5; }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8">
 
     <div class="max-w-5xl mx-auto mb-6">
         <h1 class="text-2xl md:text-3xl font-bold mb-2">🚀 Token 聚合平台</h1>
-        <p class="text-slate-400 text-sm">数据来源：Binance（公开 API，国内可访问）</p>
+        <p class="text-slate-400 text-sm">演示模式（内置数据）| 真实数据模式开发中</p>
     </div>
 
     <div class="max-w-5xl mx-auto mb-4 flex flex-col sm:flex-row gap-3">
@@ -29,9 +28,6 @@
             <option value="price_asc">价格从低到高</option>
             <option value="change_desc">涨幅从高到低</option>
         </select>
-        <button onclick="refreshData()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition">
-            🔄 刷新
-        </button>
     </div>
 
     <div class="max-w-5xl mx-auto bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
@@ -43,115 +39,96 @@
                         <th class="px-4 py-3 font-medium">代币</th>
                         <th class="px-4 py-3 font-medium text-right">价格 (USD)</th>
                         <th class="px-4 py-3 font-medium text-right">24h 涨跌</th>
+                        <th class="px-4 py-3 font-medium text-right">市值</th>
                         <th class="px-4 py-3 font-medium text-right">24h 成交量</th>
                     </tr>
                 </thead>
-                <tbody id="tokenList">
-                    <tr><td colspan="5" class="text-center py-12 text-slate-500">加载中...</td></tr>
-                </tbody>
+                <tbody id="tokenList"></tbody>
             </table>
         </div>
     </div>
 
     <div class="max-w-5xl mx-auto mt-6 text-center text-xs text-slate-500">
-        <p>⚠️ 仅供学习参考，不构成投资建议 | 数据每 60 秒自动更新</p>
+        <p>⚠️ 仅供学习参考，不构成投资建议 | 当前为演示数据</p>
     </div>
 
     <script>
-        // ========== 配置区 ==========
-        const API_URL = 'https://api.binance.com/api/v3/ticker/24hr';
-        const PRICE_URL = 'https://api.binance.com/api/v3/ticker/price';
-        
-        // 主流代币列表（USDT 交易对）
-        const TOP_SYMBOLS = [
-            'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
-            'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'DOTUSDT', 'MATICUSDT',
-            'LINKUSDT', 'LTCUSDT', 'UNIUSDT', 'ATOMUSDT', 'ETCUSDT',
-            'XLMUSDT', 'FILUSDT', 'ALGOUSDT', 'VETUSDT', 'TRXUSDT',
-            'NEARUSDT', 'APTUSDT', 'ICPUSDT', 'OPUSDT', 'ARBUSDT',
-            'SUIUSDT', 'SEIUSDT', 'TONUSDT', 'BCHUSDT', 'XMRUSDT',
-            'HBARUSDT', 'KASUSDT', 'RNDRUSDT', 'INJUSDT', 'IMXUSDT',
-            'GRTUSDT', 'STXUSDT', 'THETAUSDT', 'RUNEUSDT', 'FLOWUSDT',
-            'MANAUSDT', 'SANDUSDT', 'AXSUSDT', 'CHZUSDT', 'ENJUSDT',
-            'BATUSDT', 'ZILUSDT', 'ONTUSDT', 'IOTAUSDT', 'XTZUSDT'
+        // ========== 内置演示数据（50个主流代币） ==========
+        const MOCK_DATA = [
+            { rank: 1, symbol: 'BTC', name: 'Bitcoin', price: 67234.56, change: 2.34, marketCap: 1320000000000, volume: 28500000000 },
+            { rank: 2, symbol: 'ETH', name: 'Ethereum', price: 3456.78, change: -1.23, marketCap: 415600000000, volume: 15200000000 },
+            { rank: 3, symbol: 'BNB', name: 'BNB', price: 567.89, change: 0.45, marketCap: 87600000000, volume: 1200000000 },
+            { rank: 4, symbol: 'SOL', name: 'Solana', price: 145.67, change: 5.67, marketCap: 65400000000, volume: 3200000000 },
+            { rank: 5, symbol: 'XRP', name: 'XRP', price: 0.5678, change: -2.34, marketCap: 31200000000, volume: 1800000000 },
+            { rank: 6, symbol: 'DOGE', name: 'Dogecoin', price: 0.1234, change: 8.90, marketCap: 17800000000, volume: 2100000000 },
+            { rank: 7, symbol: 'ADA', name: 'Cardano', price: 0.4567, change: -0.89, marketCap: 16200000000, volume: 450000000 },
+            { rank: 8, symbol: 'AVAX', name: 'Avalanche', price: 34.56, change: 3.21, marketCap: 13400000000, volume: 560000000 },
+            { rank: 9, symbol: 'DOT', name: 'Polkadot', price: 7.89, change: -1.45, marketCap: 11200000000, volume: 320000000 },
+            { rank: 10, symbol: 'MATIC', name: 'Polygon', price: 0.7890, change: 4.56, marketCap: 7800000000, volume: 410000000 },
+            { rank: 11, symbol: 'LINK', name: 'Chainlink', price: 14.56, change: 1.23, marketCap: 8900000000, volume: 380000000 },
+            { rank: 12, symbol: 'LTC', name: 'Litecoin', price: 78.90, change: -3.45, marketCap: 5900000000, volume: 290000000 },
+            { rank: 13, symbol: 'UNI', name: 'Uniswap', price: 9.87, change: 6.78, marketCap: 5900000000, volume: 220000000 },
+            { rank: 14, symbol: 'ATOM', name: 'Cosmos', price: 8.90, change: -0.56, marketCap: 3400000000, volume: 150000000 },
+            { rank: 15, symbol: 'ETC', name: 'Ethereum Classic', price: 25.67, change: 2.34, marketCap: 3700000000, volume: 180000000 },
+            { rank: 16, symbol: 'XLM', name: 'Stellar', price: 0.1234, change: -4.56, marketCap: 3600000000, volume: 120000000 },
+            { rank: 17, symbol: 'FIL', name: 'Filecoin', price: 5.67, change: 7.89, marketCap: 3200000000, volume: 210000000 },
+            { rank: 18, symbol: 'ALGO', name: 'Algorand', price: 0.2345, change: -2.34, marketCap: 1900000000, volume: 89000000 },
+            { rank: 19, symbol: 'VET', name: 'VeChain', price: 0.0345, change: 3.45, marketCap: 2800000000, volume: 95000000 },
+            { rank: 20, symbol: 'TRX', name: 'TRON', price: 0.1234, change: 1.23, marketCap: 11000000000, volume: 340000000 },
+            { rank: 21, symbol: 'NEAR', name: 'NEAR Protocol', price: 5.43, change: -5.67, marketCap: 5700000000, volume: 280000000 },
+            { rank: 22, symbol: 'APT', name: 'Aptos', price: 8.90, change: 9.01, marketCap: 3900000000, volume: 190000000 },
+            { rank: 23, symbol: 'ICP', name: 'Internet Computer', price: 12.34, change: -1.23, marketCap: 5700000000, volume: 140000000 },
+            { rank: 24, symbol: 'OP', name: 'Optimism', price: 2.34, change: 4.56, marketCap: 2500000000, volume: 160000000 },
+            { rank: 25, symbol: 'ARB', name: 'Arbitrum', price: 1.23, change: -3.45, marketCap: 3200000000, volume: 210000000 },
+            { rank: 26, symbol: 'SUI', name: 'Sui', price: 1.45, change: 12.34, marketCap: 3400000000, volume: 450000000 },
+            { rank: 27, symbol: 'SEI', name: 'Sei', price: 0.4567, change: -7.89, marketCap: 1600000000, volume: 98000000 },
+            { rank: 28, symbol: 'TON', name: 'Toncoin', price: 6.78, change: 2.34, marketCap: 23000000000, volume: 230000000 },
+            { rank: 29, symbol: 'BCH', name: 'Bitcoin Cash', price: 345.67, change: -0.45, marketCap: 6800000000, volume: 180000000 },
+            { rank: 30, symbol: 'XMR', name: 'Monero', price: 178.90, change: 1.23, marketCap: 3300000000, volume: 78000000 },
+            { rank: 31, symbol: 'HBAR', name: 'Hedera', price: 0.0987, change: 5.67, marketCap: 3600000000, volume: 120000000 },
+            { rank: 32, symbol: 'KAS', name: 'Kaspa', price: 0.1234, change: -8.90, marketCap: 3100000000, volume: 89000000 },
+            { rank: 33, symbol: 'RNDR', name: 'Render', price: 7.89, change: 15.67, marketCap: 3100000000, volume: 210000000 },
+            { rank: 34, symbol: 'INJ', name: 'Injective', price: 23.45, change: -4.56, marketCap: 2200000000, volume: 130000000 },
+            { rank: 35, symbol: 'IMX', name: 'Immutable', price: 1.56, change: 3.45, marketCap: 2300000000, volume: 95000000 },
+            { rank: 36, symbol: 'GRT', name: 'The Graph', price: 0.2345, change: -2.34, marketCap: 2200000000, volume: 87000000 },
+            { rank: 37, symbol: 'STX', name: 'Stacks', price: 2.34, change: 8.90, marketCap: 3400000000, volume: 110000000 },
+            { rank: 38, symbol: 'THETA', name: 'Theta Network', price: 1.78, change: -1.23, marketCap: 1800000000, volume: 67000000 },
+            { rank: 39, symbol: 'RUNE', name: 'THORChain', price: 5.43, change: 6.78, marketCap: 1800000000, volume: 89000000 },
+            { rank: 40, symbol: 'FLOW', name: 'Flow', price: 0.7890, change: -3.45, marketCap: 1200000000, volume: 45000000 },
+            { rank: 41, symbol: 'MANA', name: 'Decentraland', price: 0.3456, change: 4.56, marketCap: 670000000, volume: 56000000 },
+            { rank: 42, symbol: 'SAND', name: 'The Sandbox', price: 0.2890, change: -5.67, marketCap: 650000000, volume: 48000000 },
+            { rank: 43, symbol: 'AXS', name: 'Axie Infinity', price: 6.78, change: 2.34, marketCap: 980000000, volume: 52000000 },
+            { rank: 44, symbol: 'CHZ', name: 'Chiliz', price: 0.0789, change: 10.23, marketCap: 580000000, volume: 67000000 },
+            { rank: 45, symbol: 'ENJ', name: 'Enjin Coin', price: 0.2345, change: -4.56, marketCap: 340000000, volume: 23000000 },
+            { rank: 46, symbol: 'BAT', name: 'Basic Attention', price: 0.2345, change: 1.23, marketCap: 350000000, volume: 19000000 },
+            { rank: 47, symbol: 'ZIL', name: 'Zilliqa', price: 0.0234, change: -6.78, marketCap: 420000000, volume: 15000000 },
+            { rank: 48, symbol: 'ONT', name: 'Ontology', price: 0.2345, change: 3.45, marketCap: 210000000, volume: 12000000 },
+            { rank: 49, symbol: 'IOTA', name: 'IOTA', price: 0.2345, change: -2.34, marketCap: 780000000, volume: 21000000 },
+            { rank: 50, symbol: 'XTZ', name: 'Tezos', price: 0.7890, change: 0.56, marketCap: 780000000, volume: 18000000 }
         ];
 
-        let allTokens = [];
-        let retryCount = 0;
+        let allTokens = [...MOCK_DATA];
 
-        // ========== 核心函数 ==========
-        async function fetchTokens() {
-            const tbody = document.getElementById('tokenList');
-            tbody.classList.add('loading');
-            
-            try {
-                // 获取 24h 数据
-                const response = await fetch(API_URL);
-                if (!response.ok) throw new Error('API 请求失败');
-                
-                const data = await response.json();
-                
-                // 过滤出主流代币
-                allTokens = data
-                    .filter(item => TOP_SYMBOLS.includes(item.symbol))
-                    .map((item, index) => ({
-                        rank: index + 1,
-                        symbol: item.symbol.replace('USDT', ''),
-                        name: getTokenName(item.symbol),
-                        price: parseFloat(item.lastPrice),
-                        change: parseFloat(item.priceChangePercent),
-                        volume: parseFloat(item.volume) * parseFloat(item.lastPrice),
-                        quoteVolume: parseFloat(item.quoteVolume)
-                    }))
-                    .sort((a, b) => b.volume - a.volume); // 按成交量排序
-                
-                renderTokens(allTokens);
-                retryCount = 0;
-                
-            } catch (error) {
-                if (retryCount < 2) {
-                    retryCount++;
-                    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-12 text-yellow-400">正在重试 (${retryCount}/2)...<br><span class="text-slate-500 text-xs">网络连接中</span></td></tr>`;
-                    setTimeout(fetchTokens, 3000);
-                    return;
-                }
-                
-                tbody.innerHTML = `
-                    <tr><td colspan="5" class="text-center py-12 text-red-400">
-                        加载失败：${error.message}<br>
-                        <span class="text-slate-500 text-xs">请检查网络连接，或稍后再试</span><br>
-                        <button onclick="refreshData()" class="mt-3 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm">重试</button>
-                    </td></tr>
-                `;
-            } finally {
-                tbody.classList.remove('loading');
-            }
-        }
+        // ========== 格式化函数 ==========
+        const formatPrice = (price) => {
+            if (price >= 1) return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return price.toFixed(6);
+        };
+        
+        const formatNumber = (num) => {
+            if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
+            if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+            return num.toFixed(2);
+        };
 
-        function getTokenName(symbol) {
-            const names = {
-                'BTC': 'Bitcoin', 'ETH': 'Ethereum', 'BNB': 'BNB', 'SOL': 'Solana',
-                'XRP': 'XRP', 'DOGE': 'Dogecoin', 'ADA': 'Cardano', 'AVAX': 'Avalanche',
-                'DOT': 'Polkadot', 'MATIC': 'Polygon', 'LINK': 'Chainlink', 'LTC': 'Litecoin',
-                'UNI': 'Uniswap', 'ATOM': 'Cosmos', 'ETC': 'Ethereum Classic', 'XLM': 'Stellar',
-                'FIL': 'Filecoin', 'ALGO': 'Algorand', 'VET': 'VeChain', 'TRX': 'TRON',
-                'NEAR': 'NEAR Protocol', 'APT': 'Aptos', 'ICP': 'Internet Computer', 'OP': 'Optimism',
-                'ARB': 'Arbitrum', 'SUI': 'Sui', 'SEI': 'Sei', 'TON': 'Toncoin',
-                'BCH': 'Bitcoin Cash', 'XMR': 'Monero', 'HBAR': 'Hedera', 'KAS': 'Kaspa',
-                'RNDR': 'Render', 'INJ': 'Injective', 'IMX': 'Immutable', 'GRT': 'The Graph',
-                'STX': 'Stacks', 'THETA': 'Theta Network', 'RUNE': 'THORChain', 'FLOW': 'Flow',
-                'MANA': 'Decentraland', 'SAND': 'The Sandbox', 'AXS': 'Axie Infinity', 'CHZ': 'Chiliz',
-                'ENJ': 'Enjin Coin', 'BAT': 'Basic Attention', 'ZIL': 'Zilliqa', 'ONT': 'Ontology',
-                'IOTA': 'IOTA', 'XTZ': 'Tezos'
-            };
-            return names[symbol.replace('USDT', '')] || symbol.replace('USDT', '');
-        }
-
+        // ========== 渲染函数 ==========
         function renderTokens(tokens) {
             const tbody = document.getElementById('tokenList');
             
             if (tokens.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-12 text-slate-500">无匹配结果</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12 text-slate-500">无匹配结果</td></tr>';
                 return;
             }
 
@@ -159,25 +136,13 @@
                 const change = token.change;
                 const changeClass = change > 0 ? 'up' : (change < 0 ? 'down' : '');
                 const changeSign = change > 0 ? '+' : '';
-                
-                const formatPrice = (price) => {
-                    if (price >= 1) return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    return price.toFixed(6);
-                };
-                
-                const formatNumber = (num) => {
-                    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
-                    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
-                    if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
-                    return num.toFixed(2);
-                };
 
                 return `
                     <tr class="token-row border-t border-slate-700">
                         <td class="px-4 py-3 text-slate-500">${index + 1}</td>
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold">
+                                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white">
                                     ${token.symbol[0]}
                                 </div>
                                 <div>
@@ -188,7 +153,52 @@
                         </td>
                         <td class="px-4 py-3 text-right font-mono">$${formatPrice(token.price)}</td>
                         <td class="px-4 py-3 text-right font-mono ${changeClass}">
-                            ${changeSign + change.toFixed(2)}%
+                            ${changeSign}${change.toFixed(2)}%
                         </td>
+                        <td class="px-4 py-3 text-right text-slate-400">$${formatNumber(token.marketCap)}</td>
                         <td class="px-4 py-3 text-right text-slate-400">$${formatNumber(token.volume)}</td>
                     </tr>
+                `;
+            }).join('');
+        }
+
+        // ========== 搜索和排序 ==========
+        function handleSearch() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = MOCK_DATA.filter(t => 
+                t.name.toLowerCase().includes(keyword) || 
+                t.symbol.toLowerCase().includes(keyword)
+            );
+            renderTokens(filtered);
+        }
+
+        function handleSort() {
+            const sortType = document.getElementById('sortSelect').value;
+            let sorted = [...MOCK_DATA];
+            
+            switch(sortType) {
+                case 'price_desc': sorted.sort((a, b) => b.price - a.price); break;
+                case 'price_asc': sorted.sort((a, b) => a.price - b.price); break;
+                case 'change_desc': sorted.sort((a, b) => b.change - a.change); break;
+                default: sorted.sort((a, b) => a.rank - b.rank);
+            }
+            
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            if (keyword) {
+                sorted = sorted.filter(t => 
+                    t.name.toLowerCase().includes(keyword) || 
+                    t.symbol.toLowerCase().includes(keyword)
+                );
+            }
+            renderTokens(sorted);
+        }
+
+        // ========== 初始化 ==========
+        document.getElementById('searchInput').addEventListener('input', handleSearch);
+        document.getElementById('sortSelect').addEventListener('change', handleSort);
+
+        // 页面加载立即显示数据
+        renderTokens(MOCK_DATA);
+    </script>
+</body>
+</html>
