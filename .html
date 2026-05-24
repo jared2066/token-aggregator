@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token 聚合 - 极简版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 暗色主题 + 简单动画 */
+        body { background: #0f172a; color: #e2e8f0; }
+        .token-row:hover { background: #1e293b; transition: 0.2s; }
+        .up { color: #4ade80; }
+        .down { color: #f87171; }
+        .loading { opacity: 0.5; }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <!-- 顶部 -->
+    <div class="max-w-5xl mx-auto mb-6">
+        <h1 class="text-2xl md:text-3xl font-bold mb-2">🚀 Token 聚合平台</h1>
+        <p class="text-slate-400 text-sm">数据来源：CoinGecko（免费 API）</p>
+    </div>
+
+    <!-- 搜索 + 控制栏 -->
+    <div class="max-w-5xl mx-auto mb-4 flex flex-col sm:flex-row gap-3">
+        <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="搜索代币名称或符号..." 
+            class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500"
+        >
+        <select id="sortSelect" class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none">
+            <option value="market_cap_desc">按市值排序</option>
+            <option value="price_desc">价格从高到低</option>
+            <option value="price_asc">价格从低到高</option>
+            <option value="change_desc">涨幅从高到低</option>
+        </select>
+        <button onclick="refreshData()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition">
+            🔄 刷新
+        </button>
+    </div>
+
+    <!-- 数据表格 -->
+    <div class="max-w-5xl mx-auto bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-900 text-slate-400 text-left">
+                    <tr>
+                        <th class="px-4 py-3 font-medium">#</th>
+                        <th class="px-4 py-3 font-medium">代币</th>
+                        <th class="px-4 py-3 font-medium text-right">价格 (USD)</th>
+                        <th class="px-4 py-3 font-medium text-right">24h 涨跌</th>
+                        <th class="px-4 py-3 font-medium text-right">市值</th>
+                        <th class="px-4 py-3 font-medium text-right">24h 成交量</th>
+                    </tr>
+                </thead>
+                <tbody id="tokenList">
+                    <tr><td colspan="6" class="text-center py-12 text-slate-500">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <div class="max-w-5xl mx-auto mt-6 text-center text-xs text-slate-500">
+        <p>⚠️ 仅供学习参考，不构成投资建议 | 数据每 60 秒自动更新</p>
+    </div>
+
+    <script>
+        // ========== 配置区 ==========
+        const API_URL = 'https://api.coingecko.com/api/v3/coins/markets';
+        const PARAMS = {
+            vs_currency: 'usd',
+            order: 'market_cap_desc',
+            per_page: 50,      // 显示前 50 个
+            page: 1,
+            sparkline: false,
+            price_change_percentage: '24h'
+        };
+
+        let allTokens = []; // 缓存原始数据
+
+        // ========== 核心函数 ==========
+
+        // 1. 获取数据
+        async function fetchTokens() {
+            const tbody = document.getElementById('tokenList');
+            tbody.classList.add('loading');
+            
+            try {
+                // 构建 URL（免费版无需 API Key）
+                const query = new URLSearchParams(PARAMS).toString();
+                const response = await fetch(`${API_URL}?${query}`);
+                
+                if (!response.ok) throw new Error('API 限流或出错');
+                
+                allTokens = await response.json();
+                renderTokens(allTokens);
+                
+            } catch (error) {
+                tbody.innerHTML = `
+                    <tr><td colspan="6" class="text-center py-12 text-red-400">
+                        加载失败：${error.message}<br>
+                        <span class="text-slate-500 text-xs">CoinGecko 免费 API 有频率限制，请稍等 1 分钟再试</span>
+                    </td></tr>
+                `;
+            } finally {
+                tbody.classList.remove('loading');
+            }
+        }
+
+        // 2. 渲染表格
+        function renderTokens(tokens) {
+            const tbody = document.getElementById('tokenList');
+            
+            if (tokens.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12 text-slate-500">无匹配结果</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = tokens.map((token, index) => {
+                const change = token.price_change_percentage_24h;
+                const changeClass = change > 0 ? 'up' : (change < 0 ? 'down' : '');
+                const changeSign = change > 0 ? '+' : '';
+                
+                // 格式化数字
+                const formatPrice = (price) => {
+                    if (price >= 1) return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    return price.toFixed(6);
+                };
+                
+                const formatNumber = (num) => {
+                    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+                    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+                    if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+                    return num.toFixed(2);
+                };
+
+                return `
+                    <tr class="token-row border-t border-slate-700">
+                        <td class="px-4 py-3 text-slate-500">${token.market_cap_rank || index + 1}</td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-3">
+                                <img src="${token.image}" alt="${token.name}" class="w-8 h-8 rounded-full" onerror="this.style.display='none'">
+                                <div>
+                                    <div class="font-medium">${token.name}</div>
+                                    <div class="text-xs text-slate-500 uppercase">${token.symbol}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-right font-mono">$${formatPrice(token.current_price)}</td>
+                        <td class="px-4 py-3 text-right font-mono ${changeClass}">
+                            ${change !== null ? changeSign + change.toFixed(2) + '%' : '-'}
+                        </td>
+                        <td class="px-4 py-3 text-right text-slate-400">$${formatNumber(token.market_cap)}</td>
+                        <td class="px-4 py-3 text-right text-slate-400">$${formatNumber(token.total_volume)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 3. 搜索过滤
+        function handleSearch() {
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allTokens.filter(t => 
+                t.name.toLowerCase().includes(keyword) || 
+                t.symbol.toLowerCase().includes(keyword)
+            );
+            renderTokens(filtered);
+        }
+
+        // 4. 排序
+        function handleSort() {
+            const sortType = document.getElementById('sortSelect').value;
+            let sorted = [...allTokens];
+            
+            switch(sortType) {
+                case 'price_desc': 
+                    sorted.sort((a, b) => b.current_price - a.current_price); 
+                    break;
+                case 'price_asc': 
+                    sorted.sort((a, b) => a.current_price - b.current_price); 
+                    break;
+                case 'change_desc': 
+                    sorted.sort((a, b) => (b.price_change_percentage_24h || 0) - (a.price_change_percentage_24h || 0)); 
+                    break;
+                default: 
+                    sorted.sort((a, b) => a.market_cap_rank - b.market_cap_rank);
+            }
+            
+            // 如果正在搜索，先过滤再排序
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            if (keyword) {
+                sorted = sorted.filter(t => 
+                    t.name.toLowerCase().includes(keyword) || 
+                    t.symbol.toLowerCase().includes(keyword)
+                );
+            }
+            
+            renderTokens(sorted);
+        }
+
+        // 5. 刷新
+        function refreshData() {
+            fetchTokens();
+        }
+
+        // ========== 事件绑定 ==========
+        document.getElementById('searchInput').addEventListener('input', handleSearch);
+        document.getElementById('sortSelect').addEventListener('change', handleSort);
+
+        // ========== 初始化 ==========
+        fetchTokens();
+        
+        // 每 60 秒自动刷新（CoinGecko 免费版建议不要更频繁）
+        setInterval(fetchTokens, 60000);
+    </script>
+</body>
+</html>
