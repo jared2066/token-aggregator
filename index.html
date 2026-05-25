@@ -3,320 +3,509 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Token 聚合 - 极简版</title>
+    <title>Token 售卖平台</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <style>
         body { background: #0f172a; color: #e2e8f0; }
         .token-row:hover { background: #1e293b; transition: 0.2s; }
         .up { color: #4ade80; }
         .down { color: #f87171; }
-        .loading { opacity: 0.5; }
-        .api-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; }
-        .api-okx { background: #7c3aed; color: white; }
-        .api-binance { background: #f59e0b; color: black; }
-        .api-mock { background: #64748b; color: white; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .card { background: #1e293b; border: 1px solid #334155; }
+        .modal { background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); }
+        .wallet-connected { background: #10b981; }
+        .wallet-disconnected { background: #ef4444; }
     </style>
 </head>
-<body class="min-h-screen p-4 md:p-8">
+<body class="min-h-screen">
 
-    <div class="max-w-5xl mx-auto mb-6">
-        <h1 class="text-2xl md:text-3xl font-bold mb-2">🚀 Token 聚合平台</h1>
-        <p class="text-slate-400 text-sm flex items-center gap-2">
-            数据来源：<span id="apiSource" class="api-tag api-okx">OKX</span>
-            <span id="apiStatus" class="text-xs text-slate-500"></span>
-        </p>
-    </div>
+    <!-- 顶部导航 -->
+    <nav class="bg-slate-900 border-b border-slate-700 px-4 py-3">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">🚀</span>
+                <h1 class="text-xl font-bold">Token 售卖平台</h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="networkStatus" class="text-xs text-slate-400 hidden">网络: <span id="networkName">--</span></span>
+                <button id="connectBtn" onclick="toggleWallet()" class="wallet-disconnected text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
+                    <span>🔗</span> 连接钱包
+                </button>
+                <div id="walletInfo" class="hidden flex items-center gap-2">
+                    <span class="text-xs text-slate-400">余额: <span id="ethBalance" class="text-white font-mono">--</span> ETH</span>
+                    <span id="walletAddress" class="text-xs bg-slate-800 px-2 py-1 rounded font-mono text-slate-300"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-    <div class="max-w-5xl mx-auto mb-4 flex flex-col sm:flex-row gap-3">
-        <input type="text" id="searchInput" placeholder="搜索代币名称或符号..." 
-            class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500">
-        <select id="sortSelect" class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none">
-            <option value="market_cap_desc">按成交量排序</option>
-            <option value="price_desc">价格从高到低</option>
-            <option value="price_asc">价格从低到高</option>
-            <option value="change_desc">涨幅从高到低</option>
-        </select>
-        <button onclick="refreshData()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition">
-            🔄 刷新
-        </button>
-    </div>
+    <!-- 主内容区 -->
+    <div class="max-w-6xl mx-auto p-4 md:p-8">
 
-    <div class="max-w-5xl mx-auto bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-900 text-slate-400 text-left">
-                    <tr>
-                        <th class="px-4 py-3 font-medium">#</th>
-                        <th class="px-4 py-3 font-medium">代币</th>
-                        <th class="px-4 py-3 font-medium text-right">价格 (USD)</th>
-                        <th class="px-4 py-3 font-medium text-right">24h 涨跌</th>
-                        <th class="px-4 py-3 font-medium text-right">24h 成交量</th>
-                    </tr>
-                </thead>
-                <tbody id="tokenList">
-                    <tr><td colspan="5" class="text-center py-12 text-slate-500">加载中...</td></tr>
-                </tbody>
-            </table>
+        <!-- 平台介绍 -->
+        <div class="mb-8 text-center">
+            <h2 class="text-3xl font-bold mb-2">去中心化 Token 交易平台</h2>
+            <p class="text-slate-400">连接钱包，安全购买热门代币 | 基于以太坊智能合约</p>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="card rounded-xl p-4">
+                <div class="text-slate-400 text-sm mb-1">平台总销量</div>
+                <div class="text-2xl font-bold text-white">1,234.56 ETH</div>
+            </div>
+            <div class="card rounded-xl p-4">
+                <div class="text-slate-400 text-sm mb-1">在售代币</div>
+                <div class="text-2xl font-bold text-white">8 种</div>
+            </div>
+            <div class="card rounded-xl p-4">
+                <div class="text-slate-400 text-sm mb-1">参与用户</div>
+                <div class="text-2xl font-bold text-white">567 人</div>
+            </div>
+        </div>
+
+        <!-- 代币列表 -->
+        <div class="card rounded-xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700 flex items-center justify-between">
+                <h3 class="font-bold text-lg">🛒 可购买代币</h3>
+                <span class="text-xs text-slate-500">价格实时更新</span>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-800 text-slate-400 text-left">
+                        <tr>
+                            <th class="px-4 py-3 font-medium">代币</th>
+                            <th class="px-4 py-3 font-medium text-right">单价 (ETH)</th>
+                            <th class="px-4 py-3 font-medium text-right">剩余库存</th>
+                            <th class="px-4 py-3 font-medium text-right">已售</th>
+                            <th class="px-4 py-3 font-medium text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tokenList"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 我的持仓 -->
+        <div class="card rounded-xl overflow-hidden mt-8" id="myHoldings" style="display: none;">
+            <div class="p-4 border-b border-slate-700">
+                <h3 class="font-bold text-lg">📊 我的持仓</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-800 text-slate-400 text-left">
+                        <tr>
+                            <th class="px-4 py-3 font-medium">代币</th>
+                            <th class="px-4 py-3 font-medium text-right">持有数量</th>
+                            <th class="px-4 py-3 font-medium text-right">价值 (ETH)</th>
+                            <th class="px-4 py-3 font-medium text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="holdingsList"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 交易记录 -->
+        <div class="card rounded-xl overflow-hidden mt-8">
+            <div class="p-4 border-b border-slate-700">
+                <h3 class="font-bold text-lg">📜 最近交易</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-800 text-slate-400 text-left">
+                        <tr>
+                            <th class="px-4 py-3 font-medium">时间</th>
+                            <th class="px-4 py-3 font-medium">用户</th>
+                            <th class="px-4 py-3 font-medium">代币</th>
+                            <th class="px-4 py-3 font-medium text-right">数量</th>
+                            <th class="px-4 py-3 font-medium text-right">金额 (ETH)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="txList"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
-    <div class="max-w-5xl mx-auto mt-6 text-center text-xs text-slate-500">
-        <p>⚠️ 仅供学习参考，不构成投资建议 | 数据每 60 秒自动更新</p>
+    <!-- 购买弹窗 -->
+    <div id="buyModal" class="modal fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold">购买 <span id="buyTokenName"></span></h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            
+            <div class="mb-4">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-lg font-bold text-white" id="buyTokenIcon"></div>
+                    <div>
+                        <div class="font-bold" id="buyTokenSymbol"></div>
+                        <div class="text-sm text-slate-400">单价: <span id="buyTokenPrice" class="text-white font-mono"></span> ETH</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm text-slate-400 mb-2">购买数量</label>
+                <input type="number" id="buyAmount" min="0.001" step="0.001" placeholder="0.1" 
+                    class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+                    oninput="updateBuyTotal()">
+                <div class="flex justify-between mt-2 text-xs text-slate-500">
+                    <span>可用余额: <span id="availableBalance" class="text-white">--</span> ETH</span>
+                    <span>库存: <span id="availableSupply" class="text-white">--</span></span>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 rounded-lg p-3 mb-4">
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="text-slate-400">小计</span>
+                    <span class="font-mono"><span id="subTotal">0</span> ETH</span>
+                </div>
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="text-slate-400">Gas费 (预估)</span>
+                    <span class="font-mono">~0.001 ETH</span>
+                </div>
+                <div class="border-t border-slate-700 mt-2 pt-2 flex justify-between font-bold">
+                    <span>总计</span>
+                    <span class="font-mono text-blue-400"><span id="totalCost">0</span> ETH</span>
+                </div>
+            </div>
+
+            <button id="confirmBuyBtn" onclick="confirmBuy()" class="btn-primary w-full text-white py-3 rounded-lg font-medium transition flex items-center justify-center gap-2">
+                <span>💎</span> 确认购买
+            </button>
+            <p class="text-xs text-slate-500 text-center mt-3">交易将通过智能合约执行，安全透明</p>
+        </div>
+    </div>
+
+    <!-- 提示消息 -->
+    <div id="toast" class="fixed top-4 right-4 z-50 hidden">
+        <div class="bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 shadow-lg flex items-center gap-3">
+            <span id="toastIcon">✅</span>
+            <span id="toastMessage">操作成功</span>
+        </div>
     </div>
 
     <script>
-        // ========== 配置区 ==========
-        const OKX_API = 'https://www.okx.com/api/v5/market/tickers?instType=SPOT';
-        const BINANCE_API = 'https://api.binance.com/api/v3/ticker/24hr';
-        
-        // 主流代币映射（instId -> 显示信息）
-        const TOKEN_MAP = {
-            'BTC-USDT': { symbol: 'BTC', name: 'Bitcoin', rank: 1 },
-            'ETH-USDT': { symbol: 'ETH', name: 'Ethereum', rank: 2 },
-            'BNB-USDT': { symbol: 'BNB', name: 'BNB', rank: 3 },
-            'SOL-USDT': { symbol: 'SOL', name: 'Solana', rank: 4 },
-            'XRP-USDT': { symbol: 'XRP', name: 'XRP', rank: 5 },
-            'DOGE-USDT': { symbol: 'DOGE', name: 'Dogecoin', rank: 6 },
-            'ADA-USDT': { symbol: 'ADA', name: 'Cardano', rank: 7 },
-            'AVAX-USDT': { symbol: 'AVAX', name: 'Avalanche', rank: 8 },
-            'DOT-USDT': { symbol: 'DOT', name: 'Polkadot', rank: 9 },
-            'MATIC-USDT': { symbol: 'MATIC', name: 'Polygon', rank: 10 },
-            'LINK-USDT': { symbol: 'LINK', name: 'Chainlink', rank: 11 },
-            'LTC-USDT': { symbol: 'LTC', name: 'Litecoin', rank: 12 },
-            'UNI-USDT': { symbol: 'UNI', name: 'Uniswap', rank: 13 },
-            'ATOM-USDT': { symbol: 'ATOM', name: 'Cosmos', rank: 14 },
-            'ETC-USDT': { symbol: 'ETC', name: 'Ethereum Classic', rank: 15 },
-            'XLM-USDT': { symbol: 'XLM', name: 'Stellar', rank: 16 },
-            'FIL-USDT': { symbol: 'FIL', name: 'Filecoin', rank: 17 },
-            'ALGO-USDT': { symbol: 'ALGO', name: 'Algorand', rank: 18 },
-            'VET-USDT': { symbol: 'VET', name: 'VeChain', rank: 19 },
-            'TRX-USDT': { symbol: 'TRX', name: 'TRON', rank: 20 },
-            'NEAR-USDT': { symbol: 'NEAR', name: 'NEAR Protocol', rank: 21 },
-            'APT-USDT': { symbol: 'APT', name: 'Aptos', rank: 22 },
-            'ICP-USDT': { symbol: 'ICP', name: 'Internet Computer', rank: 23 },
-            'OP-USDT': { symbol: 'OP', name: 'Optimism', rank: 24 },
-            'ARB-USDT': { symbol: 'ARB', name: 'Arbitrum', rank: 25 },
-            'SUI-USDT': { symbol: 'SUI', name: 'Sui', rank: 26 },
-            'SEI-USDT': { symbol: 'SEI', name: 'Sei', rank: 27 },
-            'TON-USDT': { symbol: 'TON', name: 'Toncoin', rank: 28 },
-            'BCH-USDT': { symbol: 'BCH', name: 'Bitcoin Cash', rank: 29 },
-            'XMR-USDT': { symbol: 'XMR', name: 'Monero', rank: 30 },
-            'HBAR-USDT': { symbol: 'HBAR', name: 'Hedera', rank: 31 },
-            'KAS-USDT': { symbol: 'KAS', name: 'Kaspa', rank: 32 },
-            'RNDR-USDT': { symbol: 'RNDR', name: 'Render', rank: 33 },
-            'INJ-USDT': { symbol: 'INJ', name: 'Injective', rank: 34 },
-            'IMX-USDT': { symbol: 'IMX', name: 'Immutable', rank: 35 },
-            'GRT-USDT': { symbol: 'GRT', name: 'The Graph', rank: 36 },
-            'STX-USDT': { symbol: 'STX', name: 'Stacks', rank: 37 },
-            'THETA-USDT': { symbol: 'THETA', name: 'Theta Network', rank: 38 },
-            'RUNE-USDT': { symbol: 'RUNE', name: 'THORChain', rank: 39 },
-            'FLOW-USDT': { symbol: 'FLOW', name: 'Flow', rank: 40 },
-            'MANA-USDT': { symbol: 'MANA', name: 'Decentraland', rank: 41 },
-            'SAND-USDT': { symbol: 'SAND', name: 'The Sandbox', rank: 42 },
-            'AXS-USDT': { symbol: 'AXS', name: 'Axie Infinity', rank: 43 },
-            'CHZ-USDT': { symbol: 'CHZ', name: 'Chiliz', rank: 44 },
-            'ENJ-USDT': { symbol: 'ENJ', name: 'Enjin Coin', rank: 45 },
-            'BAT-USDT': { symbol: 'BAT', name: 'Basic Attention', rank: 46 },
-            'ZIL-USDT': { symbol: 'ZIL', name: 'Zilliqa', rank: 47 },
-            'ONT-USDT': { symbol: 'ONT', name: 'Ontology', rank: 48 },
-            'IOTA-USDT': { symbol: 'IOTA', name: 'IOTA', rank: 49 },
-            'XTZ-USDT': { symbol: 'XTZ', name: 'Tezos', rank: 50 }
-        };
+        // ========== 配置 ==========
+        // 模拟的代币数据（实际项目中应从智能合约读取）
+        const TOKENS = [
+            { id: 1, symbol: 'JARED', name: 'Jared Token', price: 0.001, supply: 1000000, sold: 456000, icon: 'J' },
+            { id: 2, symbol: 'MOON', name: 'Moon Coin', price: 0.005, supply: 500000, sold: 234000, icon: 'M' },
+            { id: 3, symbol: 'STAR', name: 'Star Token', price: 0.01, supply: 200000, sold: 89000, icon: 'S' },
+            { id: 4, symbol: 'GOLD', name: 'Gold Coin', price: 0.1, supply: 100000, sold: 12000, icon: 'G' },
+            { id: 5, symbol: 'DIAMOND', name: 'Diamond Token', price: 1, supply: 10000, sold: 3400, icon: 'D' },
+            { id: 6, symbol: 'RUBY', name: 'Ruby Coin', price: 0.05, supply: 300000, sold: 156000, icon: 'R' },
+            { id: 7, symbol: 'EMERALD', name: 'Emerald Token', price: 0.02, supply: 400000, sold: 234000, icon: 'E' },
+            { id: 8, symbol: 'SAPPHIRE', name: 'Sapphire Coin', price: 0.08, supply: 150000, sold: 67000, icon: 'S' }
+        ];
 
-        let allTokens = [];
-        let currentSource = 'okx';
+        // 模拟交易记录
+        let transactions = [
+            { time: '2026-05-25 20:30', user: '0x1234...5678', token: 'JARED', amount: 1000, value: 1 },
+            { time: '2026-05-25 20:25', user: '0xabcd...ef01', token: 'MOON', amount: 500, value: 2.5 },
+            { time: '2026-05-25 20:20', user: '0x9876...5432', token: 'GOLD', amount: 50, value: 5 },
+            { time: '2026-05-25 20:15', user: '0xfedc...ba98', token: 'DIAMOND', amount: 10, value: 10 },
+            { time: '2026-05-25 20:10', user: '0x1111...2222', token: 'RUBY', amount: 2000, value: 100 }
+        ];
 
-        // ========== 格式化函数 ==========
-        const formatPrice = (price) => {
-            if (price >= 1) return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            return price.toFixed(6);
-        };
-        
-        const formatNumber = (num) => {
-            if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
-            if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
-            if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
-            if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
-            return num.toFixed(2);
-        };
+        // 用户持仓（模拟）
+        let userHoldings = {};
 
-        // ========== OKX API ==========
-        async function fetchOKX() {
-            const response = await fetch(OKX_API);
-            if (!response.ok) throw new Error('OKX API 失败');
-            
-            const data = await response.json();
-            if (data.code !== '0') throw new Error('OKX 返回错误');
-            
-            return data.data
-                .filter(item => TOKEN_MAP[item.instId])
-                .map(item => ({
-                    ...TOKEN_MAP[item.instId],
-                    price: parseFloat(item.last),
-                    change: parseFloat(item.open24h) ? ((parseFloat(item.last) - parseFloat(item.open24h)) / parseFloat(item.open24h) * 100) : 0,
-                    volume: parseFloat(item.volCcy24h) * parseFloat(item.last)
-                }))
-                .sort((a, b) => a.rank - b.rank);
-        }
+        // Web3 状态
+        let provider = null;
+        let signer = null;
+        let userAddress = null;
+        let currentBuyToken = null;
 
-        // ========== Binance API（备用） ==========
-        async function fetchBinance() {
-            const response = await fetch(BINANCE_API);
-            if (!response.ok) throw new Error('Binance API 失败');
-            
-            const data = await response.json();
-            
-            return data
-                .filter(item => {
-                    const base = item.symbol.replace('USDT', '');
-                    return Object.values(TOKEN_MAP).some(t => t.symbol === base);
-                })
-                .map(item => {
-                    const base = item.symbol.replace('USDT', '');
-                    const mapEntry = Object.entries(TOKEN_MAP).find(([_, v]) => v.symbol === base);
-                    return {
-                        ...mapEntry[1],
-                        price: parseFloat(item.lastPrice),
-                        change: parseFloat(item.priceChangePercent),
-                        volume: parseFloat(item.volume) * parseFloat(item.lastPrice)
-                    };
-                })
-                .sort((a, b) => a.rank - b.rank);
-        }
-
-        // ========== Mock 数据（最后备用） ==========
-        function getMockData() {
-            return Object.values(TOKEN_MAP).map(t => ({
-                ...t,
-                price: Math.random() * 1000 + 0.1,
-                change: (Math.random() - 0.5) * 20,
-                volume: Math.random() * 1000000000
-            })).sort((a, b) => a.rank - b.rank);
-        }
-
-        // ========== 主加载函数 ==========
-        async function fetchTokens() {
-            const tbody = document.getElementById('tokenList');
-            const sourceTag = document.getElementById('apiSource');
-            const statusTag = document.getElementById('apiStatus');
-            
-            tbody.classList.add('loading');
-            
-            try {
-                // 先尝试 OKX
-                statusTag.textContent = '正在连接 OKX...';
-                allTokens = await fetchOKX();
-                currentSource = 'okx';
-                sourceTag.className = 'api-tag api-okx';
-                sourceTag.textContent = 'OKX';
-                
-            } catch (okxError) {
-                console.log('OKX 失败，尝试 Binance:', okxError);
-                
-                try {
-                    // 再尝试 Binance
-                    statusTag.textContent = 'OKX 失败，正在连接 Binance...';
-                    allTokens = await fetchBinance();
-                    currentSource = 'binance';
-                    sourceTag.className = 'api-tag api-binance';
-                    sourceTag.textContent = 'Binance';
-                    
-                } catch (binanceError) {
-                    console.log('Binance 也失败，使用 Mock 数据:', binanceError);
-                    
-                    // 最后用 Mock
-                    statusTag.textContent = 'API 受限，使用演示数据';
-                    allTokens = getMockData();
-                    currentSource = 'mock';
-                    sourceTag.className = 'api-tag api-mock';
-                    sourceTag.textContent = '演示数据';
-                }
+        // ========== 钱包功能 ==========
+        async function toggleWallet() {
+            if (userAddress) {
+                disconnectWallet();
+            } else {
+                connectWallet();
             }
-            
-            renderTokens(allTokens);
-            tbody.classList.remove('loading');
-            statusTag.textContent = currentSource === 'mock' ? '（API 受限时的备用方案）' : `（${new Date().toLocaleTimeString()} 更新）`;
         }
 
-        // ========== 渲染函数 ==========
-        function renderTokens(tokens) {
-            const tbody = document.getElementById('tokenList');
-            
-            if (tokens.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-12 text-slate-500">无匹配结果</td></tr>';
+        async function connectWallet() {
+            if (!window.ethereum) {
+                showToast('❌', '请先安装 MetaMask 钱包');
                 return;
             }
 
-            tbody.innerHTML = tokens.map((token, index) => {
-                const change = token.change;
-                const changeClass = change > 0 ? 'up' : (change < 0 ? 'down' : '');
-                const changeSign = change > 0 ? '+' : '';
+            try {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+                
+                // 获取网络
+                const network = await provider.getNetwork();
+                document.getElementById('networkName').textContent = network.name === 'homestead' ? 'Ethereum' : network.name;
+                document.getElementById('networkStatus').classList.remove('hidden');
+                
+                // 获取余额
+                const balance = await provider.getBalance(userAddress);
+                const ethBalance = ethers.utils.formatEther(balance);
+                document.getElementById('ethBalance').textContent = parseFloat(ethBalance).toFixed(4);
+                
+                // 更新UI
+                document.getElementById('connectBtn').className = 'wallet-connected text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2';
+                document.getElementById('connectBtn').innerHTML = '<span>✅</span> 已连接';
+                document.getElementById('walletAddress').textContent = userAddress.slice(0, 6) + '...' + userAddress.slice(-4);
+                document.getElementById('walletInfo').classList.remove('hidden');
+                document.getElementById('myHoldings').style.display = 'block';
+                
+                showToast('✅', '钱包连接成功！');
+                updateHoldings();
+                
+            } catch (error) {
+                console.error(error);
+                showToast('❌', '连接失败: ' + error.message);
+            }
+        }
 
+        function disconnectWallet() {
+            userAddress = null;
+            provider = null;
+            signer = null;
+            
+            document.getElementById('connectBtn').className = 'wallet-disconnected text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2';
+            document.getElementById('connectBtn').innerHTML = '<span>🔗</span> 连接钱包';
+            document.getElementById('walletInfo').classList.add('hidden');
+            document.getElementById('networkStatus').classList.add('hidden');
+            document.getElementById('myHoldings').style.display = 'none';
+            
+            showToast('ℹ️', '钱包已断开');
+        }
+
+        // ========== 渲染代币列表 ==========
+        function renderTokens() {
+            const tbody = document.getElementById('tokenList');
+            
+            tbody.innerHTML = TOKENS.map(token => {
+                const remaining = token.supply - token.sold;
+                const percentSold = (token.sold / token.supply * 100).toFixed(1);
+                
                 return `
                     <tr class="token-row border-t border-slate-700">
-                        <td class="px-4 py-3 text-slate-500">${index + 1}</td>
-                        <td class="px-4 py-3">
+                        <td class="px-4 py-4">
                             <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white">
-                                    ${token.symbol[0]}
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-bold text-white">
+                                    ${token.icon}
                                 </div>
                                 <div>
-                                    <div class="font-medium">${token.name}</div>
+                                    <div class="font-bold">${token.name}</div>
                                     <div class="text-xs text-slate-500 uppercase">${token.symbol}</div>
                                 </div>
                             </div>
                         </td>
-                        <td class="px-4 py-3 text-right font-mono">$${formatPrice(token.price)}</td>
-                        <td class="px-4 py-3 text-right font-mono ${changeClass}">
-                            ${changeSign}${change.toFixed(2)}%
+                        <td class="px-4 py-4 text-right font-mono text-lg">${token.price} ETH</td>
+                        <td class="px-4 py-4 text-right">
+                            <div class="font-mono">${remaining.toLocaleString()}</div>
+                            <div class="w-24 h-1 bg-slate-700 rounded-full mt-1 ml-auto">
+                                <div class="h-full bg-blue-500 rounded-full" style="width: ${100 - percentSold}%"></div>
+                            </div>
                         </td>
-                        <td class="px-4 py-3 text-right text-slate-400">$${formatNumber(token.volume)}</td>
+                        <td class="px-4 py-4 text-right text-slate-400">
+                            <div class="font-mono">${token.sold.toLocaleString()}</div>
+                            <div class="text-xs">${percentSold}%</div>
+                        </td>
+                        <td class="px-4 py-4 text-center">
+                            <button onclick="openBuyModal(${token.id})" class="btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                                购买
+                            </button>
+                        </td>
                     </tr>
                 `;
             }).join('');
         }
 
-        // ========== 搜索和排序 ==========
-        function handleSearch() {
-            const keyword = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = allTokens.filter(t => 
-                t.name.toLowerCase().includes(keyword) || 
-                t.symbol.toLowerCase().includes(keyword)
-            );
-            renderTokens(filtered);
-        }
-
-        function handleSort() {
-            const sortType = document.getElementById('sortSelect').value;
-            let sorted = [...allTokens];
-            
-            switch(sortType) {
-                case 'price_desc': sorted.sort((a, b) => b.price - a.price); break;
-                case 'price_asc': sorted.sort((a, b) => a.price - b.price); break;
-                case 'change_desc': sorted.sort((a, b) => b.change - a.change); break;
-                default: sorted.sort((a, b) => b.volume - a.volume);
+        // ========== 购买弹窗 ==========
+        function openBuyModal(tokenId) {
+            if (!userAddress) {
+                showToast('❌', '请先连接钱包');
+                return;
             }
             
-            const keyword = document.getElementById('searchInput').value.toLowerCase();
-            if (keyword) {
-                sorted = sorted.filter(t => 
-                    t.name.toLowerCase().includes(keyword) || 
-                    t.symbol.toLowerCase().includes(keyword)
-                );
-            }
-            renderTokens(sorted);
+            const token = TOKENS.find(t => t.id === tokenId);
+            currentBuyToken = token;
+            
+            document.getElementById('buyTokenName').textContent = token.name;
+            document.getElementById('buyTokenSymbol').textContent = token.symbol;
+            document.getElementById('buyTokenIcon').textContent = token.icon;
+            document.getElementById('buyTokenPrice').textContent = token.price;
+            document.getElementById('availableSupply').textContent = (token.supply - token.sold).toLocaleString();
+            document.getElementById('availableBalance').textContent = document.getElementById('ethBalance').textContent;
+            
+            document.getElementById('buyAmount').value = '';
+            updateBuyTotal();
+            
+            document.getElementById('buyModal').classList.remove('hidden');
+            document.getElementById('buyModal').classList.add('flex');
         }
 
-        function refreshData() {
-            fetchTokens();
+        function closeModal() {
+            document.getElementById('buyModal').classList.add('hidden');
+            document.getElementById('buyModal').classList.remove('flex');
+            currentBuyToken = null;
+        }
+
+        function updateBuyTotal() {
+            if (!currentBuyToken) return;
+            
+            const amount = parseFloat(document.getElementById('buyAmount').value) || 0;
+            const subTotal = amount * currentBuyToken.price;
+            const total = subTotal + 0.001; // 加gas费
+            
+            document.getElementById('subTotal').textContent = subTotal.toFixed(6);
+            document.getElementById('totalCost').textContent = total.toFixed(6);
+        }
+
+        // ========== 确认购买 ==========
+        async function confirmBuy() {
+            if (!currentBuyToken || !userAddress) return;
+            
+            const amount = parseFloat(document.getElementById('buyAmount').value);
+            if (!amount || amount <= 0) {
+                showToast('❌', '请输入有效的购买数量');
+                return;
+            }
+            
+            const totalCost = amount * currentBuyToken.price + 0.001;
+            const balance = parseFloat(document.getElementById('ethBalance').textContent);
+            
+            if (totalCost > balance) {
+                showToast('❌', '余额不足');
+                return;
+            }
+            
+            const remaining = currentBuyToken.supply - currentBuyToken.sold;
+            if (amount > remaining) {
+                showToast('❌', '库存不足');
+                return;
+            }
+            
+            // 模拟交易（实际项目应调用智能合约）
+            document.getElementById('confirmBuyBtn').innerHTML = '<span>⏳</span> 处理中...';
+            document.getElementById('confirmBuyBtn').disabled = true;
+            
+            setTimeout(() => {
+                // 更新代币数据
+                currentBuyToken.sold += amount;
+                
+                // 更新用户持仓
+                if (!userHoldings[currentBuyToken.symbol]) {
+                    userHoldings[currentBuyToken.symbol] = { name: currentBuyToken.name, amount: 0, value: 0 };
+                }
+                userHoldings[currentBuyToken.symbol].amount += amount;
+                userHoldings[currentBuyToken.symbol].value += amount * currentBuyToken.price;
+                
+                // 添加交易记录
+                const now = new Date();
+                transactions.unshift({
+                    time: now.toISOString().slice(0, 16).replace('T', ' '),
+                    user: userAddress.slice(0, 6) + '...' + userAddress.slice(-4),
+                    token: currentBuyToken.symbol,
+                    amount: amount,
+                    value: (amount * currentBuyToken.price).toFixed(4)
+                });
+                
+                // 更新余额（模拟）
+                const newBalance = balance - totalCost;
+                document.getElementById('ethBalance').textContent = newBalance.toFixed(4);
+                
+                // 刷新UI
+                renderTokens();
+                renderTransactions();
+                updateHoldings();
+                
+                closeModal();
+                showToast('✅', `成功购买 ${amount} ${currentBuyToken.symbol}！`);
+                
+                document.getElementById('confirmBuyBtn').innerHTML = '<span>💎</span> 确认购买';
+                document.getElementById('confirmBuyBtn').disabled = false;
+                
+            }, 2000); // 模拟2秒交易确认
+        }
+
+        // ========== 渲染持仓 ==========
+        function updateHoldings() {
+            const tbody = document.getElementById('holdingsList');
+            const holdings = Object.entries(userHoldings);
+            
+            if (holdings.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-500">暂无持仓</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = holdings.map(([symbol, data]) => `
+                <tr class="token-row border-t border-slate-700">
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold">${data.name}</span>
+                            <span class="text-xs text-slate-500">${symbol}</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono">${data.amount.toLocaleString()}</td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-400">${data.value.toFixed(4)} ETH</td>
+                    <td class="px-4 py-3 text-center">
+                        <button class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded transition">转出</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // ========== 渲染交易记录 ==========
+        function renderTransactions() {
+            const tbody = document.getElementById('txList');
+            
+            tbody.innerHTML = transactions.slice(0, 10).map(tx => `
+                <tr class="token-row border-t border-slate-700">
+                    <td class="px-4 py-3 text-slate-400 text-xs">${tx.time}</td>
+                    <td class="px-4 py-3 font-mono text-xs">${tx.user}</td>
+                    <td class="px-4 py-3">
+                        <span class="font-medium">${tx.token}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono">${tx.amount.toLocaleString()}</td>
+                    <td class="px-4 py-3 text-right font-mono text-blue-400">${tx.value} ETH</td>
+                </tr>
+            `).join('');
+        }
+
+        // ========== 提示消息 ==========
+        function showToast(icon, message) {
+            document.getElementById('toastIcon').textContent = icon;
+            document.getElementById('toastMessage').textContent = message;
+            document.getElementById('toast').classList.remove('hidden');
+            
+            setTimeout(() => {
+                document.getElementById('toast').classList.add('hidden');
+            }, 3000);
+        }
+
+        // ========== 监听钱包事件 ==========
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', (accounts) => {
+                if (accounts.length === 0) {
+                    disconnectWallet();
+                } else {
+                    connectWallet();
+                }
+            });
+            
+            window.ethereum.on('chainChanged', () => {
+                window.location.reload();
+            });
         }
 
         // ========== 初始化 ==========
-        document.getElementById('searchInput').addEventListener('input', handleSearch);
-        document.getElementById('sortSelect').addEventListener('change', handleSort);
-
-        fetchTokens();
-        setInterval(fetchTokens, 60000);
+        renderTokens();
+        renderTransactions();
     </script>
 </body>
 </html>
